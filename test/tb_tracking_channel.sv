@@ -18,11 +18,11 @@ module tb_tracking_channel;
   localparam [9:0] PRN_KEY_INIT  = 10'h3EC; // PRN 1
 
   // Code slew in HALF-CHIPS
-  localparam integer CODE_DELAY   = 4; // <-- set to match the IF generator (chips)
+  localparam integer CODE_DELAY   = 200; // <-- set to match the IF generator (chips)
   localparam integer CODE_SLEW_HC = CODE_DELAY * 2;
 
   // IF Doppler in Hz
-  localparam real IF_DOPPLER_HZ = 1500.0; // <-- set to match the IF generator (Hz)
+  localparam real IF_DOPPLER_HZ = -2500.0; // <-- set to match the IF generator (Hz)
 
   // NCO control words fixed for 16.368MHz clock
   // IF center = 4.092MHz => f_control = 0x800_0000 (28-bit)
