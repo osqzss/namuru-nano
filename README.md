@@ -1,4 +1,4 @@
-# namuru-gps
+# namuru-nano
 
 This repository provides a Verilog implementation of a single-channel GPS L1 C/A baseband tracking correlator, based on the NAMURU receiver code originally open-sourced by UNSW (The University of New South Wales). The design integrates a carrier NCO, code NCO, C/A code generation, epoch counting, and early/prompt/late I/Q accumulators. Simulation testbenches with file-driven IF input are included to validate code delay (slew), Doppler, and correlation performance.
 
