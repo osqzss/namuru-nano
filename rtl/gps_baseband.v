@@ -4,19 +4,6 @@
 // Author          : Peter Mumford UNSW 2005
 // Modified by     : Takji Ebinuma, 2026
 
-// ----------------------------------------------------------------------------------------
-// fix log
-// ----------------------------------------------------------------------------------------
-// 2/3/07 : Peter Mumford
-// Fixed a problem when a new data read coincides or imediately
-// follows a dump pulse. In this case the new data flag for that channel is lost.
-// The fix involved capturing the dump state of all channels on a read of the
-// new data register and using it as a mask for the new data flags.
-// The following registers accomplish a two clock cycle wide mask function.
-//   reg [11:0] dump_mask; // mask a channel that has a dump aligned with the new data read
-//   reg [11:0] dump_mask_2; // mask for two clock cycles
-// ----------------------------------------------------------------------------------------
-
 /* This module connects to the Avalon bus
 
  address map
@@ -98,6 +85,8 @@ module gps_baseband (clk, hw_rstn,
 
    reg sw_rst; // reset to tracking module
    wire rstn; // software generated reset  
+
+   reg [11:0] ch_active;  // 1 = channel is active (PRN key has been programmed at least once)
 
    // channel 0 registers
    reg [9:0] ch0_prn_key;
@@ -274,8 +263,6 @@ module gps_baseband (clk, hw_rstn,
    reg status_read; // pulse when status register is read
    reg [11:0] new_data; // chan0 = bit 0, chan1 = bit 1 etc, cleared on read
    reg new_data_read; // pules when new_data register is read
-   reg [11:0] dump_mask; // mask a channel that has a dump aligned with the new data read
-   reg [11:0] dump_mask_2; // mask for two clock cycles
 
    // control registers
    reg [23:0] prog_tic;
@@ -649,26 +636,29 @@ module gps_baseband (clk, hw_rstn,
 	    ch11_code_nco <= 0;
 	
 	    // Anything else need initializing here?
+       ch_active <= 12'h000;
+
       end
    else if(chip_select)
 
       case (address)
       // channel 0
          8'h00 : begin
-	          if (write) begin
+	         if (write) begin
 	            ch0_prn_key <= write_data[9:0];
-				ch0_prn_key_enable <= 1;
+				   ch0_prn_key_enable <= 1;
+               ch_active[0] <= 1'b1;  // Mark channel 0 active
 				end
-	          end
+	      end
          8'h01 : if (write) ch0_carr_nco <= write_data[28:0];
          8'h02 : if (write) ch0_code_nco <= write_data[27:0];
          8'h03 : begin
 	         //ch0_slew_enable <= write;// & chip_select;
-	          if (write) begin
+	         if (write) begin
 	            ch0_code_slew <= write_data[10:0];
-				ch0_slew_enable <= 1;
+				   ch0_slew_enable <= 1;
 				end
-	          end
+	      end
          8'h04 : read_data <= {16'h0, ch0_i_early};
          8'h05 : read_data <= {16'h0, ch0_q_early};			 
          8'h06 : read_data <= {16'h0, ch0_i_prompt};			 
@@ -680,17 +670,18 @@ module gps_baseband (clk, hw_rstn,
          8'h0C : read_data <= {21'h0, ch0_epoch}; // 11 bits
          8'h0D : read_data <= {21'h0, ch0_epoch_check}; // 11 bits
          8'h0E : begin
-              if (write) begin
-				ch0_epoch_load <= write_data[10:0];
-				ch0_epoch_enable <= 1;
-              	end
-			  end
+            if (write) begin
+               ch0_epoch_load <= write_data[10:0];
+               ch0_epoch_enable <= 1;
+            end
+			end
 
      // channel 1
          8'h10 : begin
 	          if (write) begin
 				ch1_prn_key <= write_data[9:0];
 				ch1_prn_key_enable <= 1;
+            ch_active[1] <= 1'b1;  // Mark channel 1 active
 				end
 	          end
          8'h11 : if (write) ch1_carr_nco <= write_data[28:0];
@@ -723,6 +714,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch2_prn_key <= write_data[9:0];
 				ch2_prn_key_enable <= 1;
+            ch_active[2] <= 1'b1;  // Mark channel 2 active
 				end
 	          end
          8'h21 : if (write) ch2_carr_nco <= write_data[28:0];
@@ -755,6 +747,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch3_prn_key <= write_data[9:0];
 				ch3_prn_key_enable <= 1;
+            ch_active[3] <= 1'b1;  // Mark channel 3 active
 				end
 	          end
          8'h31 : if (write) ch3_carr_nco <= write_data[28:0];
@@ -787,6 +780,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch4_prn_key <= write_data[9:0];
 				ch4_prn_key_enable <= 1;
+            ch_active[4] <= 1'b1;  // Mark channel 4 active
 				end
 	          end
          8'h41 : if (write) ch4_carr_nco <= write_data[28:0];
@@ -819,6 +813,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch5_prn_key <= write_data[9:0];
 				ch5_prn_key_enable <= 1;
+            ch_active[5] <= 1'b1;  // Mark channel 5 active
 				end
 	          end
          8'h51 : if (write) ch5_carr_nco <= write_data[28:0];
@@ -851,6 +846,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch6_prn_key <= write_data[9:0];
 				ch6_prn_key_enable <= 1;
+            ch_active[6] <= 1'b1;  // Mark channel 6 active
 				end
 	          end
          8'h61 : if (write) ch6_carr_nco <= write_data[28:0];
@@ -883,6 +879,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch7_prn_key <= write_data[9:0];
 				ch7_prn_key_enable <= 1;
+            ch_active[7] <= 1'b1;  // Mark channel 7 active
 				end
 	          end
          8'h71 : if (write) ch7_carr_nco <= write_data[28:0];
@@ -915,6 +912,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch8_prn_key <= write_data[9:0];
 				ch8_prn_key_enable <= 1;
+            ch_active[8] <= 1'b1;  // Mark channel 8 active
 				end
 	          end
          8'h81 : if (write) ch8_carr_nco <= write_data[28:0];
@@ -947,6 +945,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch9_prn_key <= write_data[9:0];
 				ch9_prn_key_enable <= 1;
+            ch_active[9] <= 1'b1;  // Mark channel 9 active
 				end
 	          end
          8'h91 : if (write) ch9_carr_nco <= write_data[28:0];
@@ -979,6 +978,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch10_prn_key <= write_data[9:0];
 				ch10_prn_key_enable <= 1;
+            ch_active[10] <= 1'b1;  // Mark channel 10 active
 				end
 	          end
          8'hA1 : if (write) ch10_carr_nco <= write_data[28:0];
@@ -1011,6 +1011,7 @@ module gps_baseband (clk, hw_rstn,
 	          if (write) begin
 				ch11_prn_key <= write_data[9:0];
 				ch11_prn_key_enable <= 1;
+            ch_active[11] <= 1'b1;  // Mark channel 11 active
 				end
 	          end
          8'hB1 : if (write) ch11_carr_nco <= write_data[28:0];
@@ -1051,22 +1052,7 @@ module gps_baseband (clk, hw_rstn,
 			  end
          8'hE1 : begin // get new_data
             read_data <= {20'h0,new_data}; // one new_data bit per channel, need to pad other bits
-            // pulse the new data flag to clear new_data register
-			//new_data_read <= read;
-			// make sure the flag is not cleared if a dump is aligned to new_data_read
-			dump_mask[0] <= ch0_dump;
-			dump_mask[1] <= ch1_dump;
-			dump_mask[2] <= ch2_dump;
-			dump_mask[3] <= ch3_dump;
-			dump_mask[4] <= ch4_dump;
-			dump_mask[5] <= ch5_dump;
-			dump_mask[6] <= ch6_dump;
-			dump_mask[7] <= ch7_dump;
-			dump_mask[8] <= ch8_dump;
-			dump_mask[9] <= ch9_dump;
-			dump_mask[10] <= ch10_dump;
-			dump_mask[11] <= ch11_dump;
-			if(read) new_data_read <= 1;
+            if(read) new_data_read <= 1; // pulse to clear new_data
             end
          8'hE2 : begin // tic count read
             read_data <= {8'h0,tic_count}; // 24 bits of TIC count
@@ -1141,16 +1127,6 @@ module gps_baseband (clk, hw_rstn,
 	end
    end // if chip_select
 
-
-   // process to create a two clk wide dump_mask pulse
-   always @ (posedge clk)
-   begin
-     if (!rstn)
-        dump_mask_2 <= 0;
-     else
-        dump_mask_2 <= dump_mask;
-   end
-
    // process to reset the status register after a read
    // also create accum_int signal that is cleared after status read
    
@@ -1174,43 +1150,71 @@ module gps_baseband (clk, hw_rstn,
 	    end
    end
 
-   // process to reset the new_data register after a read
-   // set new data bits when channel dumps occur
-   always @ (posedge clk)
-   begin
-	 if (!rstn || new_data_read)
-	    begin
-	    new_data <= dump_mask | dump_mask_2;
-	    end
-	 else
-       begin
-       if (ch0_dump)
-	       new_data[0] <= 1;
-	    if (ch1_dump)
-	       new_data[1] <= 1;
-	    if (ch2_dump)
-	       new_data[2] <= 1;
-	    if (ch3_dump)
-	       new_data[3] <= 1;
-	    if (ch4_dump)
-	       new_data[4] <= 1;
-	    if (ch5_dump)
-	       new_data[5] <= 1;
-	    if (ch6_dump)
-	       new_data[6] <= 1;
-	    if (ch7_dump)
-	       new_data[7] <= 1;
-	    if (ch8_dump)
-	       new_data[8] <= 1;
-	    if (ch9_dump)
-	       new_data[9] <= 1;
-	    if (ch10_dump)
-	       new_data[10] <= 1;
-	    if (ch11_dump)
-	       new_data[11] <= 1;
-	    end // else: !if(!rstn || new_data_read)
-   end // always @ (posedge clk)
-	
+   // Sticky new_data flags: set on dump, cleared on read
+   wire [11:0] dumps_now;
+   assign dumps_now[0]  = ch0_dump;
+   assign dumps_now[1]  = ch1_dump;
+   assign dumps_now[2]  = ch2_dump;
+   assign dumps_now[3]  = ch3_dump;
+   assign dumps_now[4]  = ch4_dump;
+   assign dumps_now[5]  = ch5_dump;
+   assign dumps_now[6]  = ch6_dump;
+   assign dumps_now[7]  = ch7_dump;
+   assign dumps_now[8]  = ch8_dump;
+   assign dumps_now[9]  = ch9_dump;
+   assign dumps_now[10] = ch10_dump;
+   assign dumps_now[11] = ch11_dump;
+
+   always @(posedge clk) begin
+   if (!rstn) begin
+      new_data <= 12'h000;
+   end else begin
+      // Always accumulate dump events
+      new_data <= new_data | (dumps_now & ch_active);
+      // Clear bits that were acknowledged by reading Q_LATE.
+      // If a dump arrives in the same cycle, the bit remains set due to the OR above.
+      if (nd_clear_pulse != 12'h000) begin
+         //new_data <= (new_data | (dumps_now & ch_active)) & ~nd_clear_pulse;
+         new_data <= ((new_data & ~nd_clear_pulse) | (dumps_now & ch_active));
+      end
+      /*
+      // Clear flags after software reads new_data
+      if (new_data_read) begin
+         // Clear after presenting; next dumps will be re-latched
+         new_data <= 12'h000 | dumps_now;
+      end
+      */
+   end
+   end
+
+   // One-cycle pulse indicating that software acknowledged channel data by reading Q_LATE.
+   reg [11:0] nd_clear_pulse;
+
+   always @(posedge clk) begin
+   if (!hw_rstn) begin
+      nd_clear_pulse <= 12'h000;
+   end else begin
+      nd_clear_pulse <= 12'h000; // default: no clear
+      if (chip_select && read) begin
+         case (address)
+         8'h09: nd_clear_pulse[0] <= 1'b1; // ch0 Q_LATE read -> clear ch0 new_data
+         8'h19: nd_clear_pulse[1] <= 1'b1; // ch1 Q_LATE read -> clear ch1 new_data
+         8'h29: nd_clear_pulse[2] <= 1'b1; // ...
+         8'h39: nd_clear_pulse[3] <= 1'b1;
+         8'h49: nd_clear_pulse[4] <= 1'b1;
+         8'h59: nd_clear_pulse[5] <= 1'b1;
+         8'h69: nd_clear_pulse[6] <= 1'b1;
+         8'h79: nd_clear_pulse[7] <= 1'b1;
+         8'h89: nd_clear_pulse[8] <= 1'b1;
+         8'h99: nd_clear_pulse[9] <= 1'b1;
+         8'hA9: nd_clear_pulse[10] <= 1'b1;
+         8'hB9: nd_clear_pulse[11] <= 1'b1;
+         default: ;
+         endcase
+      end
+   end
+   end
+
 endmodule // gps_baseband
 			 
 			 
