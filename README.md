@@ -4,7 +4,7 @@ This repository provides a Verilog implementation of a single-channel GPS L1 C/A
 
 ## Repository Structure
 
-- `rtl/`: SystemVerilog source code for the GPS L1 C/A tracking channel and its submodules.
+- `rtl/`: Verilog source code for the GPS L1 C/A tracking channel and its submodules.
 - `test/`: Testbenches for verifying the SystemVerilog modules.
 - `sh/`: Helper scripts to run simulations with Icarus Verilog.
 - `sim/`: IF signal generator used by the testbenches.
