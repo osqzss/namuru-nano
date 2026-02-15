@@ -53,7 +53,7 @@ cd sh
 
 ### 5\. Run the AXI4-Lite wrapper testbench (Updated)
 
-`gps_baseband_axi4lite_wrapper.v` provides an AXI4-Lite slave interface on top of `gps_baseband.v`. Due to synchronous read_data updates in the baseband, the wrapper intentionally pipelines read responses to guarantee coherent register reads.
+`gps_baseband_axi4lite_wrapper.v` provides an AXI4-Lite slave interface on top of `gps_baseband.v`. Due to synchronous `read_data` updates in the baseband, the wrapper intentionally pipelines read responses to guarantee coherent register reads.
 
 ```bash
 cd sh
